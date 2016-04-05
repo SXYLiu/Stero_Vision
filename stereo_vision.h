@@ -12,10 +12,18 @@
 class Stereo 
 {
     private:
-        CvMa
+
     public:
     
     
     
-}
+};
+
+void OnMouse(int, int, int, int, void *)
+void Select_an_Area(IplImage *)
+CvPoint floods(int, int, char * , int)
+void FindthePoints(IplImage *, const CvMat* )
+
+
+
 
