@@ -12,7 +12,7 @@
 class Stereo 
 {
     private:
-
+        float dist[15][15];
     public:
     
     
