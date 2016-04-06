@@ -19,10 +19,12 @@ class Stereo
     
 };
 
-void OnMouse(int, int, int, int, void *)
-void Select_an_Area(IplImage *)
-CvPoint floods(int, int, char * , int)
-void FindthePoints(IplImage *, const CvMat* )
+void OnMouse(int, int, int, int, void * )
+void Select_an_Area(IplImage * )
+CvPoint floods(int, int, char * , int )
+void Find_Points(IplImage *, const CvMat* )
+CvMat* Cv_Load_Vector(char*, int )
+int Cv_Save_Vector(CvMat*, char*, int )
 
 
 

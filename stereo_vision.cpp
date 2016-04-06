@@ -109,7 +109,7 @@ CvPoint floods(int y, int x, char * ptr, int lg)
     return ave;
 }
 
-void FindthePoints(IplImage *dst, const CvMat* xyz)
+void Find_Points(IplImage *dst, const CvMat* xyz)
 {
     spoint.clear();
     memset(flags, 0, sizeof(flags));
@@ -150,7 +150,7 @@ void StereoCalib(const char* imageList, int nx, int ny, int useUncalibrated)
     const int maxScale = 1;
     const float squareSize = 22.0f;   //Set this to your actual square size
     int i, j, lr, nframes, n = nx*ny, N = 0;
-    vector<string> imageNames[2];
+    vector<string> imageNames[2];     //File Name
     vector<CvPoint3D32f> objectPoints;
     vector<CvPoint2D32f> points[2];
     vector<int> npoints;
@@ -168,6 +168,7 @@ void StereoCalib(const char* imageList, int nx, int ny, int useUncalibrated)
     CvMat _T = cvMat(3, 1, CV_64F, T);
     CvMat _E = cvMat(3, 3, CV_64F, E);
     CvMat _F = cvMat(3, 3, CV_64F, F);
+    CvMat _Q  = cvMat(4, 4, CV_64F, Q);
     CvMat* mx1 = cvCreateMat( imageSize.height,
         imageSize.width, CV_32F );
     CvMat* my1 = cvCreateMat( imageSize.height,
@@ -177,7 +178,6 @@ void StereoCalib(const char* imageList, int nx, int ny, int useUncalibrated)
     CvMat* my2 = cvCreateMat( imageSize.height,
         imageSize.width, CV_32F );
     CvMat* pair;
-    CvMat _Q  = cvMat(4, 4, CV_64F, Q);
    // CvMat _F = cvMat(3, 3, CV_64F, F );
     if( displayCorners )
         cvNamedWindow( "corners", 1 );
@@ -202,17 +202,16 @@ void StereoCalib(const char* imageList, int nx, int ny, int useUncalibrated)
         if( buf[0] == '#')
             continue;
         IplImage* img = cvLoadImage( buf, 0 );
-        if( !img )
-            break;
+        if (!img) break;
         imageSize = cvGetSize(img);
-        imageNames[lr].push_back(buf);//can use
+        imageNames[lr].push_back(buf);     //Put File Names into list
     //FIND CHESSBOARDS AND CORNERS THEREIN:
         for( int s = 1; s <= maxScale; s++ )
         {
             IplImage* timg = img;
             if( s > 1 )
             {
-                timg = cvCreateImage(cvSize(img->width*s,img->height*s),
+                timg = cvCreateImage(cvSize(img->width*s, img->height*s),
                     img->depth, img->nChannels );
                 cvResize( img, timg, CV_INTER_CUBIC );
             }
@@ -316,7 +315,7 @@ void StereoCalib(const char* imageList, int nx, int ny, int useUncalibrated)
         &_M1, &_D1, 0, &_M1 );
     cvUndistortPoints( &_imagePoints2, &_imagePoints2,
         &_M2, &_D2, 0, &_M2 );
-    cv_save_vector(&_F,"_F.txt",2);
+    Cv_Save_Vector(&_F,"_F.txt",2);
     cvComputeCorrespondEpilines( &_imagePoints1, 1, &_F, &_L1 );
     cvComputeCorrespondEpilines( &_imagePoints2, 2, &_F, &_L2 );
     double avgErr = 0;
@@ -374,9 +373,9 @@ void StereoCalib(const char* imageList, int nx, int ny, int useUncalibrated)
             cvMatMul(&_H2, &_M2, &_R2);
             cvMatMul(&_iM, &_R2, &_R2);
     //Precompute map for cvRemap()
-            cvInitUndistortRectifyMap(&_M1,&_D1,&_R1,&_M1,mx1,my1);
+            cvInitUndistortRectifyMap(&_M1, &_D1, &_R1, &_M1, mx1, my1);
 
-            cvInitUndistortRectifyMap(&_M2,&_D1,&_R2,&_M2,mx2,my2);
+            cvInitUndistortRectifyMap(&_M2, &_D1, &_R2, &_M2, mx2, my2);
         }
     }
         else
@@ -389,9 +388,79 @@ void StereoCalib(const char* imageList, int nx, int ny, int useUncalibrated)
         else
             pair = cvCreateMat( imageSize.height*2, imageSize.width,
             CV_8UC3 );
-        cv_save_vector(&_Q,"_Q.txt",2);
-        cv_save_vector(mx1,"mx1.txt",1);
-        cv_save_vector(mx2,"mx2.txt",1);
-        cv_save_vector(my1,"my1.txt",1);
-        cv_save_vector(my2,"my2.txt",1);
+        Cv_Save_Vector(&_Q, "_Q.txt", 2);
+        Cv_Save_Vector(mx1, "mx1.txt", 1);
+        Cv_Save_Vector(mx2, "mx2.txt", 1);
+        Cv_Save_Vector(my1, "my1.txt", 1);
+        Cv_Save_Vector(my2, "my2.txt", 1);
+}
+
+int Cv_Save_Vector(CvMat *mat, char *filename, int type)
+{
+    FILE *fp = fopen(filename, "w+");
+    if(fp != NULL){
+    fprintf(fp, "%d %d\n", mat->rows, mat->cols);
+    for(int i = 0; i<mat->rows; i++) {
+        for(int j = 0; j<mat->cols; j++) {
+        switch(type)
+        {
+       case 0:
+        fprintf(fp, "%d ", (mat->data.ptr + i*mat->step)[j]);
+        break;
+       case 1:
+        fprintf(fp, "%f ", (mat->data.fl + i*mat->step/4)[j]);
+        break;
+       case 2:
+        fprintf(fp, "%lf ", (mat->data.db + i*mat->step/8)[j]);
+        break;
+       case 3:
+        fprintf(fp, "%d ", (mat->data.s + i*mat->step/2)[j]);
+         break;
+       }
+    }
+    fprintf(fp,"\n");
+  }
+   fclose(fp);
+ }
+    return 0;
+}
+
+CvMat *Cv_Load_Vector(char* filename, int type)
+{
+    int rows, cols;
+    CvMat *mat = NULL;
+    FILE *fp = fopen(filename, "r+");
+    if (fp != NULL) {
+    fscanf(fp, "%d %d", &rows, &cols);
+    switch(type)
+    {
+    case 0:
+        mat = cvCreateMat(rows, cols, CV_8UC1);
+        break;
+    case 1:
+        mat = cvCreateMat(rows, cols, CV_32FC1);
+        break;
+    case 2:
+        mat = cvCreateMat(rows, cols, CV_64FC1);
+    break;
+  }
+  for(int i = 0; i< mat->rows; i++) {
+   for(int j = 0; j< mat->cols; j++) {
+    switch(type)
+    {
+     case 0:
+      fscanf(fp, "%d", &(mat->data.ptr + i*mat->step)[j]);
+      break;
+     case 1:
+      fscanf(fp, "%f", &(mat->data.fl + i*mat->step/4)[j]);
+      break;
+     case 2:
+      fscanf(fp, "%lf", &(mat->data.db + i*mat->step/8)[j]);
+      break;
+    }
+   }
+  }
+  fclose(fp);
+ }
+ return mat;
 }
