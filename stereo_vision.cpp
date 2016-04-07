@@ -1,3 +1,7 @@
+/*
+ Contributed by Lsxy
+ March, 25, 2016
+ */
 #include <stereo_vision.h>
 
 void OnMouse(int event, int x, int y, int flags, void* tmp)
@@ -47,8 +51,9 @@ void Select_an_Area(IplImage *src)
                 rect.x = min(pt_beg.x, pt_end.x);
                 rect.y = min(pt_beg.y, pt_end.y);
                 rect.height = abs(pt_end.y - pt_beg.y);
-                rect.width = abs(pt_end.x - pt_beg.x);
+                rect.width = abs(pt_end.x - pt_beg.x);                
                 printf("RECT:height=%d,width=%d\n", rect.height, rect.width);
+
                 cvSetImageROI(src, rect);
                 printf("ROI:Height=%d,Width=%d.\n", src->roi->height, src->roi->width);
                 dst = cvCreateImage(cvSize(rect.width, rect.height), src->depth, src->nChannels);
@@ -76,36 +81,38 @@ void Select_an_Area(IplImage *src)
 
 CvPoint floods(int y, int x, char * ptr, int lg)
 {
-    int qux[101],quy[101],tail=1,head=0,temx,temy,t,tot=0;
-    qux[head]=x;
-    quy[head]=y;
-    flags[y][x]=1;
-    CvPoint ave=cvPoint(x,y);
-    ave.x=0;
-    ave.y=0;
-    while (tail>head) {
-        temx=qux[head];
-        temy=quy[head];
-        ave.x+=temx;
-        ave.y+=temy;
+    int qux[101], quy[101],tail = 1,head = 0, temx, temy, t, tot=0;
+    qux[head] = x;
+    quy[head] = y;
+    flags[y][x] = 1;
+    CvPoint ave = cvPoint(x, y);
+    ave.x = 0;
+    ave.y = 0;
+    while (tail > head) {
+        temx = qux[head];
+        temy = quy[head];
+        ave.x += temx;
+        ave.y += temy;
         tot++;
         head++;
-        if (tail>=100) {
-            ave.x=-1;
-            ave.y=-1;
+        if (tail >= 100) {
+            ave.x = -1;
+            ave.y = -1;
             return ave;
         }
-        for (t=0; t<8; t++)
-            if (temy+dy[t]>=0&&temy+dy[t]<480&&temx+dx[t]>=0&&temx+dx[t]<640&&
-                    !flags[temy+dy[t]][temx+dx[t]]&&ptr[(temy+dy[t])*lg+temx+dx[t]]>=CRT) {//attention maybe not 110 ,according to actual value
-            qux[tail]=temx+dx[t];
-            quy[tail]=temy+dy[t];
-            flags[quy[tail]][qux[tail]]=1;
-            tail++;
+        for (t = 0; t < 8; t++)
+            if (temy + dy[t] >= 0 && temy + dy[t] < 480 &&
+                    temx + dx[t] >= 0 && temx + dx[t] < 640 &&
+                    !flags[temy + dy[t]][temx + dx[t]] &&
+                      ptr[(temy + dy[t])*lg + temx + dx[t]] >= CRT) {//attention maybe not 110 ,according to actual value
+            qux[tail] = temx + dx[t];
+            quy[tail] = temy + dy[t];
+            flags[quy[tail]][qux[tail]] = 1;
+            tail ++;
             }
     }
-    ave.x=ave.x/tot;
-    ave.y=ave.y/tot;
+    ave.x = ave.x/tot;
+    ave.y = ave.y/tot;
     return ave;
 }
 
@@ -134,13 +141,13 @@ void Find_Points(IplImage *dst, const CvMat* xyz)
     for (i = 0; i < spoint.size(); i++) {
         ptr = (exds->imageData) + spoint[i].y*dst->widthStep + spoint[i].x;
         for (j = 0; j < 12; j++) *(ptr + j) = 255;
-        printf("%f\n", xyz->data.fl[spoint[i].y * (xyz->step/4) + 3*spoint[i].x + 2]);
+        printf("%f\n", xyz->data.fl[spoint[i].y*(xyz->step/4) + 3*spoint[i].x + 2]);
     }
     cvNamedWindow("POINT", 1);
     cvShowImage("POINT", exds);
 }
 
-void StereoCalib(const char* imageList, int nx, int ny, int useUncalibrated)
+void Stereo_Calib(const char* imageList, int nx, int ny, int useUncalibrated)
 {
     int displayCorners = 0;            //display corners
     char kyinp = -1, chooseinp, runinp;
@@ -262,7 +269,7 @@ void StereoCalib(const char* imageList, int nx, int ny, int useUncalibrated)
     fclose(f);
     printf("\n");
 // HARVEST CHESSBOARD 3D OBJECT POINT LIST:
-    nframes = active[0].size();//Number of good chessboads found
+    nframes = active[0].size(); //Number of good chessboads found
     objectPoints.resize(nframes*n);
     for( i = 0; i < ny; i++ )
         for( j = 0; j < nx; j++ )
@@ -464,3 +471,380 @@ CvMat *Cv_Load_Vector(char* filename, int type)
  }
  return mat;
 }
+
+void Load_Parameters()                 //
+{
+    mx1 = Cv_Load_Vector("mx1.txt",1);
+    mx2 = Cv_Load_Vector("mx2.txt",1);
+    my1 = Cv_Load_Vector("my1.txt",1);
+    my2 = Cv_Load_Vector("my2.txt",1);
+    _Q = *Cv_Load_Vector("_Q.txt",2);
+}
+
+void Stereo_Position()
+{
+    printf("Do the First-time Exercise (Y) or Run Position Calculation (N)?");
+    scanf("%c", &runinp);
+    if (runinp == 'Y' || runinp == 'y') {
+        //addins,totpoints;
+    //calculate Mid Point & all distance
+   // IplImage *img1,*img2;
+    char buf1[1024], buf2[1024];
+    CvMat* xyz;
+    float movx, movy, movz;
+    CvStereoBMState *BMState = cvCreateStereoBMState();
+//        BMState->preFilterType=0;
+//        BMState->preFilterSize=21;
+//        BMState->preFilterCap=31;
+//        BMState->SADWindowSize=11;
+//        BMState->minDisparity=0;
+//        BMState->numberOfDisparities=128;
+//        BMState->textureThreshold=20;
+//        BMState->uniquenessRatio=5;
+    printf("Please Input the Middle Point of the Object...");
+    scanf("%f %f %f", &movx, &movy, &movz);
+    totpoints = 0;
+    memset(CompDarr, 0, sizeof(CompDarr));
+    memset(MidDistance, 0, sizeof(MidDistance));
+    origin.clear();
+//        for (i=0; i<4; i++) {
+//           scanf("%s",buf1);
+//           scanf("%s",buf2);
+//           imageNames[0].push_back(buf1);
+//           imageNames[1].push_back(buf2);
+//        }
+//       char *ptr;
+    for( i = 0; i < 1; i++)//z axis rotation
+    {
+        kyinp=-1;
+        IplImage *img1 = cvLoadImage("left.bmp", 0);
+        IplImage *img2 = cvLoadImage("right.bmp", 0);
+//            FILE *fs=fopen("imgine.txt","w+");
+//            for (int j=0; j<img1->height; j++) {
+//               ptr=(img1->imageData)+j*img1->widthStep;
+//                for (int k=0; k<img1->width; k++) fprintf(fs,"%d ",*(ptr++));
+//                fprintf(fs,"\n");
+//            }
+//            fclose(fs);
+       // CvMat mathdr, *sav = cvGetMat( img1, &mathdr);
+        if( img1 && img2 )
+        {
+//               //cv_save_vector(sav,"img1.txt",0);
+            cvRemap( img1, img1r, mx1, my1 );
+            cvRemap( img2, img2r, mx2, my2 );
+//                cv_save_vector(img1r,"img1r.txt",0);
+//                cv_save_vector(img2r,"img2r.txt",0);
+//
+//                cvShowImage( "img1r", img1r );
+//                cvShowImage( "img2r", img2r );
+//                cvSaveImage("img1r.bmp",img1r,0);
+//                cvSaveImage("img2r.bmp",img2r,0);
+//                cvFindStereoCorrespondenceBM( img2r, img1r, disp,
+//                    BMState);
+//                xyz=cvCreateMat(disp->height,disp->width,CV_32FC3);
+//                cvReprojectImageTo3D(disp, xyz, &_Q, true);
+//                printf("1111 %lf\n",_Q.data.db[14]);
+//                cvSave("xyz.xml",xyz);
+//                cvNormalize( disp, vdisp, 0, 150, CV_MINMAX );
+//                cvSaveImage("disp.bmp",disp,0);
+//                cv_save_vector(disp,"disp.txt",3);
+//                cvNamedWindow( "disparity" );
+//                cvShowImage( "disparity", disp );
+//            Find_Points(img2r);            //According to ROI to fix
+            //GetArrangement();
+            printf("%d\n",spoint.size());
+            Rotate(xyz,2,i,movx,movy,movz); //1:x 2:y 3:z i:angle
+            if( cvWaitKey() == 27 )
+                break;
+            }
+        cvReleaseImage( &img1 );
+        cvReleaseImage( &img2 );
+        }
+    for( i = 0; i < 0; i++ )//x axis rotation
+    {
+        kyinp=-1;
+        IplImage *img1 = cvLoadImage(imageNames[0][i].c_str(), 0);
+        IplImage *img2 = cvLoadImage(imageNames[1][i].c_str(), 0);
+        if( img1 && img2 )
+        {
+            cvRemap( img1, img1r, mx1, my1 );
+            cvRemap( img2, img2r, mx2, my2 );
+            cvFindStereoCorrespondenceBM( img1r, img2r, disp,
+                BMState);
+            xyz=cvCreateMat(disp->height, disp->width, CV_32FC3);
+            cvReprojectImageTo3D(disp, xyz, &_Q, true);
+            cvNormalize( disp, vdisp, 0, 256, CV_MINMAX );
+            cvNamedWindow( "disparity" );
+            cvShowImage( "disparity", disp );
+            FindthePoints(img2, xyz);  //According to ROI to fix
+            //GetArrangement();
+            Rotate(xyz, 1, i, movx, movy, movz);  //1:x 2:y 3:z i:angle mm
+            }
+        cvReleaseImage( &img1 );
+        cvReleaseImage( &img2 );
+        }
+    Savearr();
+    cvReleaseStereoBMState( &BMState );
+    cvReleaseMat( &xyz );
+    cvReleaseMat( &mx1 );
+    cvReleaseMat( &my1 );
+    cvReleaseMat( &mx2 );
+    cvReleaseMat( &my2 );
+    cvReleaseMat( &img1r );
+    cvReleaseMat( &img2r );
+    cvReleaseMat( &disp );
+    }
+}
+
+void CalculateDist(float temp[15][15], const CvMat* xyz)
+{
+    int i, j, tei, tej;
+    for (i = 0; i < spoint.size()-1; i++) {
+        temp[i][i] = 0;
+        for (j = i+1; j < spoint.size(); j++) {
+ //Now Q
+        tei = spoint[i].y*(xyz->step/4) + 3*spoint[i].x;
+        tej = spoint[j].y*(xyz->step/4) + 3*spoint[j].x;
+      //  if (xyz->data.fl[tei+2]<9999.0&&xyz->data.fl[tej+2]<9999.0) {
+            temp[i][j] = sqrt(xyz->data.fl[tei]*xyz->data.fl[tei]+
+                            xyz->data.fl[tei+1]*xyz->data.fl[tei + 1]+
+                            xyz->data.fl[tei+2]*xyz->data.fl[tei + 2]);
+            temp[j][i] = temp[i][j];
+     //   } else {
+     //       temp[i][j]=10000.0;
+      //      temp[j][i]=10000.0;
+        //}
+      }
+   }
+}
+
+inline bool cmp(const int aa, const int bb)
+{
+    return aa>bb;
+}
+
+int FindtheSimilarD(float dis[15], int tot)
+{
+    int i, j, k, t;
+    float ds[60];
+    for (i = 0; i < totpoints; i++)
+       if (!stdflags[i]) {
+        j=0; k=0; t=0;
+        for (j =0; j < totpoints; j++) ds[t++] = CompDarr[i][j];
+        sort(ds, ds+t, cmp);
+        j=0;
+        while (j < totpoints) {
+            if (abs(dis[k] - ds[j]) <= 1.5) k++;
+            if (abs(dis[k] - ds[j]) > 1.5 && dis[k] > ds[j]) break;
+            if (k == tot-1) break;
+            j++;
+        }
+        if (k == tot-1) {
+            stdflags[i] = 1;
+            return i;
+        }
+    }
+    return -1;
+}
+
+
+void ComparetoStandardD(const float temp[15][15], int relat[15])
+{
+    int i, j, tot = 0;
+    float ds[15];
+    memset(stdflags, 0, sizeof(stdflags));
+    for (i = 0; i < spoint.size(); i++) {
+        memset(ds, 0, sizeof(ds));
+        tot = 0;
+        for (j = 0; j < spoint.size(); j++) if (temp[i][j] < 9999.0) ds[tot++] = temp[i][j];
+        sort(ds, ds+tot, cmp);
+        relat[i] = FindtheSimilarD(ds, tot);
+   }
+}
+
+void GetthePosition(int relat[], float *posx, float *posy, float *posz,
+                     float *movx, float *movy, float *movz, const CvMat* xyz)
+{
+    //Select 3 Points
+    int i, j, k, te1, te2, offset, fl3 = 9999, fl1=0, fl2 = 9999;
+    float a, b, c, anx, any, l1, l2, l3, x1, x2, a1, b1, a2, b2,
+            y1, y2, x12, x13, x14, y12, y13, y14, x22, x23, x24,
+              y22, y23, y24, l12, l22, tem, tail, mid, z1, z2, z3, x3, y3;
+ /*   for (i=0; i<spoint.size()-2; i++) {
+      tei=spoint[i].y*(xyz->step/4)+3*spoint[i].x;
+      if (xyz->data.fl[tei+2]<9999.0&&relat[i]!=-1) {
+      for (j=i+1; j<spoint.size()-1; j++) {
+         tej=spoint[j].y*(xyz->step/4)+3*spoint[j].x;
+         if (xyz->data.fl[tej+2]<9999.0&&relat[j]!=-1) {
+           for (k=j+1; k<spoint.size(); k++) {
+             tek=spoint[k].y*(xyz->step/4)+3*spoint[k].x;
+              if (xyz->data.fl[tek+2]<9999.0&&relat[k]!=-1) {
+                fl=1;
+                break;
+              }
+              if (fl==1) break;
+            }
+         }
+         if (fl==1) break;
+        }
+      }
+      if (fl==1) break;
+    } where error happens*/
+    k = -1;
+    for (i = 0; i < spoint.size(); i++) {
+       if (spoint[i].y > fl1) fl1 = spoint[i].y;
+       if (spoint[i].y < fl2) fl2 = spoint[i].y;
+    }
+    fl1 = (fl1 + fl2)/2;
+    fl2 = 9999; fl3 = 9999;
+    for (i=0; i<spoint.size(); i++) {
+      if (abs(spoint[i].y-fl1)<fl2) {
+          te1=i;
+          fl2=abs(spoint[i].y-fl1);
+      }
+         else if (abs(spoint[i].y - fl1) < fl3) {
+         te2 = i;
+         fl3 = abs(spoint[i].y - fl1);
+      }
+    }
+    //Select 2 Points to reconstruct Mid Point
+    //ds=distanc[i][j];
+    l1 = MidDistance[relat[te1]];
+    l2 = MidDistance[relat[te2]];
+    offset = spoint[te1].y*(xyz->step/4) + 3*spoint[te1].x;
+    x1 = xyz->data.fl[offset];
+    y1 = xyz->data.fl[offset + 1];
+    z1 = xyz->data.fl[offset + 2];
+    c = xyz->data.fl[offset + 2];
+    offset = spoint[te2].y*(xyz->step/4) + 3*spoint[te2].x;
+    x2 = xyz->data.fl[offset];
+    y2 = xyz->data.fl[offset+1];
+    z2 = xyz->data.fl[offset+2];
+    c = (c + xyz->data.fl[offset + 2])/2;
+    x12 = x1*x1;  x22 = x2*x2;
+    x13 = x12*x1; x23 = x22*x2;
+    x14 = x13*x1; x24 = x23*x2;
+    y12 = y1*y1;  y22 = y2*y2;
+    y13 = y12*y1; y23 = y22*y2;
+    y14 = y13*y1; y24 = y23*y2;
+    l12 = l1*l1;  l22 = l2*l2;
+    tem = sqrt(-l12 + 2*l1*l2 + 2*l1*x12 - 4*l1*x1*x2 + 2*l1*x22 + 2*l1*y12 - 4*l1*y1*y2
+             + 2*l1*y22 - l22 + 2*l2*x12 - 4*l2*x1*x2 + 2*l2*x22 + 2*l2*y12 - 4*l2*y1*y2
+               + 2*l2*y22 - x14 + 4*x13*x2 - 6*x12*x22 - 2*x12*y12 + 4*x12*y1*y2
+             - 2*x12*y22 + 4*x1*x23 + 4*x1*x2*y12  -8*x1*x2*y1*y2 + 4*x1*x2*y22-x24-2*x22*y12
+               + 4*x22*y1*y2 - 2*x22*y22 - y14 + 4*y13*y2 - 6*y12*y22 + 4*y1*y23 - y24);
+    tail = 2*(x12 - 2*x1*x2 + x22 + y12 - 2*y1*y2 + y22);
+    mid = -l1*y1 + l1*y2 + l2*y1 - l2*y2 + x12*y1 + x12*y2 + x22*y1
+            + x22*y2 - y1*y22 - y12*y2 + y13 + y23 - 2*x1*x2*y1 - 2*x1*x2*y2;
+    a1 = (x2*tem - x1*tem + mid)/tail;
+    a2 = (x1*tem - x2*tem + mid)/tail;
+    mid = -l1*x1 + l1*x2 + l2*x1 - l2*x2 - x1*x22 - x12*x2 + x1*y12 + x1*y22
+            + x2*y12 + x2*y22 + x13 + x23 - 2*x1*y1*y2 - 2*x2*y1*y2;
+    b1 = (y1*tem - y2*tem + mid)/tail;
+    b2 = (y2*tem - y1*tem + mid)/tail;
+    for (i = 0; i < spoint.size(); i++)
+        if (k != te1 && k != te2) {
+            k = i;
+            break;
+        }
+    anx = xyz->data.fl[spoint[k].y*(xyz->step/4) + 3*spoint[k].x];
+    any = xyz->data.fl[spoint[k].y*(xyz->step/4) + 3*spoint[k].x+1];
+    z3 = xyz->data.fl[spoint[k].y*(xyz->step/4) + 3*spoint[k].x+2];
+    if (abs((a1 - anx)*(a1 - anx) + (b1 - any)*(b1 - any) - MidDistance[relat[k]])<
+            abs((a2 - anx)*(a2 - anx) + (b2 - any)*(b2 - any) - MidDistance[relat[k]])) {
+        a = a1; b = b1;
+    }
+    else {
+        a = a2; b = b2;
+    }
+    x3 = anx; y3 = any;
+    x1 -= a; y1 -= b; z1 -= c;
+    *movx = a; *movy = b; *movz = c;
+    a = x1;  b = y1; c = z1;
+    fl1 = 99999.0;
+    for (i = 0; i < 360; i += 2) {
+        x3 = cos(i/(2*Pi));
+        y3 = sin(i/(2*Pi));
+      for (j = 0; j < 360; j += 2) {
+          x2 = cos(j/(2*Pi));
+          y2 = sin(j/(2*Pi));
+         for (k = 0; k < 360; k += 2) {
+           x1 = cos(k/(2*Pi));
+           y1 = sin(k/(2*Pi));
+           l1 = abs(x3*(y2*(c*x1 + b*y1) + a*x2) -
+                    y3*(b*x1 - c*y1) - origin[relat[te1]].x);
+           l2 = abs(x3*(b*x1 - c*y1) +
+                    y3*(y2*(c*x1 + b*y1) + a*x2) - origin[relat[te1]].y);
+           l3 = abs(x2*(c*x1 + b*y1) -
+                    a*y2 - origin[relat[te1]].z);
+           if (l1 + l2 + l3 < 1) {
+               *posx = k;
+               *posy = j;
+               *posz = i;
+               return;
+           }
+           if (l1 + l2 + l3 < fl1) {
+              fl1 = l1 + l2 + l3;
+              *posx = k;
+              *posy = j;
+              *posz = i;
+           }
+         }
+      }
+    }
+    return;
+}
+
+void GetArrangement(float *movx, float *movy, float *movz, const CvMat* xyz)
+{
+  //  int i,j,k,te1,te2,offset,fl3=9999,fl1=0,fl2=9999;
+
+}
+
+void Rotate(const CvMat* xyz, int axs, int angel, float movx, float movy, float movz )
+{
+    int i, j, k, offset;
+    float x, y, z, sint, cost;
+    if (angel == 0) {sint = 0; cost = 1.0;}
+    if (angel == 3) {sint = 1.0; cost = 0;}
+    if (angel == 2) {sint = 0; cost = -1.0;}
+    if (angel == 1) {sint = -1.0; cost = 0;}
+    for (i = 0; i < spoint.size(); i++) {
+        offset = spoint[i].y*(xyz->step/4) + 3*spoint[i].x;
+        x = xyz->data.fl[offset] - movx;
+        y = xyz->data.fl[offset + 1] - movy;
+        z = xyz->data.fl[offset + 2] - movz;
+        if (axs == 3) {
+        x = x*cost - y*sint;
+        y = y*cost + x*sint;
+        }
+        if (axs == 2) {
+        x = x*cost + z*sint;
+        z = z*cost - x*sint;
+        }
+        if (axs == 1) {
+        y = y*cost - z*sint;
+        z = z*cost + y*sint;
+        }
+        k = 0;
+        for (j = 0; j < origin.size(); j++)
+          if (abs(z - origin[j].z) +
+                abs(y - origin[j].y) +
+                  abs(x - origin[j].x) < 10.0) {//
+             k=1;
+             break;
+          }
+        if (k != 1) {
+          ++totpoints;
+          origin.push_back(cvPoint3D32f(x,y,z));
+          MidDistance[totpoints] = x*x+y*y+z*z;
+          for (j = 0; j < origin.size()-1; j++) {
+              CompDarr[j][totpoints] = (x - origin[j].x)*(x - origin[j].x) +
+                                        (y - origin[j].y)*(y - origin[j].y) +
+                                         (z - origin[j].z)*(z - origin[j].z);//
+              CompDarr[totpoints][j] = CompDarr[j][totpoints];
+          }
+      }
+    }
+}
+
