@@ -24,21 +24,28 @@ class Monocular
 class Stereo
 {
     private:
-        float dist[15][15];
-        double posx, posy, posz;
-        double movx, movy, movz;
-        CvMat* disp;
-        CvMat* xyz;
-        vector<int> spoint;
+        float aDist[15][15];
+        double m_dPosX, m_dPosY, m_dPosZ;
+        double m_dMovX, m_dMovY, m_dMovZ;
+        CvMat* m_pcmDisp;
+        CvMat* m_pcmXyz;
+        vector<int> vecPoint;
+        IplImage* m_pGraphic_left, m_pGraphic_right;
 
     public:
+
         Stereo();
         ~Stereo();
+        friend Select_an_Area(IplImage * );
+
+
+
+
+
     
 
 };
 
-void OnMouse(int, int, int, int, void* )
 void Select_an_Area(IplImage * )
 CvPoint floods(int, int, char * , int )
 void Find_Points(IplImage *, const CvMat* )
@@ -53,6 +60,8 @@ void ComparetoStandardD(const float temp[][15], int relat[15])
 void GetthePosition(int relat[], float *, float *, float *, float *, float *, float *, const CvMat* )
 void Rotate(const CvMat*, int, int, float, float, float)
 void GetArrangement(float *, float *, float *, const CvMat* )
+
+#endif //Stereo.h
 
 
 

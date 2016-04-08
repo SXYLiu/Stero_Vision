@@ -44,7 +44,7 @@ void Select_an_Area(IplImage *src)
     cvShowImage("SRC", src);
     tmp = cvCloneImage(src);
     cvSetMouseCallback("SRC", OnMouse, tmp);
-    for (;;) {
+    for ( ; ; ) {
         c = cvWaitKey(10);
         if (c == 'c') {
             if (pt_beg.x != -1) {
@@ -81,7 +81,7 @@ void Select_an_Area(IplImage *src)
 
 CvPoint floods(int y, int x, char * ptr, int lg)
 {
-    int qux[101], quy[101],tail = 1,head = 0, temx, temy, t, tot=0;
+    int qux[101], quy[101], tail = 1, head = 0, temx, temy, t, tot = 0;
     qux[head] = x;
     quy[head] = y;
     flags[y][x] = 1;
